@@ -292,7 +292,7 @@ elif page == "patient_appointment":
                         unsafe_allow_html=True
                     )
                     if status == "Đã khám":
-                        if st.button("Xem đơn khám", key=f"rec_{a['appointment_id']}"):
+                        if st.button("Xem đơn khám", key=f"rec_{a['appointment_id']}_{status}"):
                             try:
                                 with st.spinner("Đang tải kết quả khám..."):
                                     # Gọi API record theo appointment_id
@@ -324,9 +324,9 @@ elif page == "patient_appointment":
                                 st.error(f"Lỗi khi kết nối server: {e}")
 
                 with cols[1]:
-                    # ❌ Ẩn nút "Hủy" nếu lịch đã hủy hoặc đã khám
+                    #  Ẩn nút "Hủy" nếu lịch đã hủy hoặc đã khám
                     if status not in ("Hủy", "Đã khám"):
-                        if st.button("Hủy", key=f"del_{a['appointment_id']}"):
+                        if st.button("Hủy", key=f"del_{a['appointment_id']}_{status}"):
                             cancel_url = f"{API_URL}{a['appointment_id']}/cancel"
                             try:
                                 with st.spinner("Đang hủy lịch hẹn..."):

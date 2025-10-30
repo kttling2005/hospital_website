@@ -295,11 +295,11 @@ elif page == "Doctor-appointment":
                     unsafe_allow_html=True
                 )
                 with st.expander(f"Nhập kết quả khám cho {patient_name}"):
-                    diagnosis = st.text_area(f"Chẩn đoán cho {patient_name}")
-                    prescription = st.text_area("Đơn thuốc (nếu có)")
-                    notes = st.text_area("Ghi chú thêm (nếu có)")
+                    diagnosis = st.text_area(f"Chẩn đoán cho {patient_name}", key=f"diag_{a['appointment_id']}")
+                    prescription = st.text_area("Đơn thuốc (nếu có)", key=f"pres_{a['appointment_id']}")
+                    notes = st.text_area("Ghi chú thêm (nếu có)", key=f"note_{a['appointment_id']}")
 
-                    if st.button(f"Hoàn tất khám ({patient_name})", key=a["appointment_id"]):
+                    if st.button(f"Hoàn tất khám ({patient_name})", key=f"btn_{a['appointment_id']}"):
                         payload = {
                             "appointment_id": a["appointment_id"],
                             "diagnosis": diagnosis,
