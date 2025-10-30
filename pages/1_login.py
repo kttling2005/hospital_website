@@ -162,7 +162,8 @@ elif page =="login":
                         st.session_state["user"] = user_info
 
                         # ✅ Lưu cookies vào query params để phục hồi sau reload
-                        st.query_params["session"] = cookies_dict.get("session")
+                        #st.query_params["session"] = cookies_dict.get("session")
+                        st.session_state["session_cookie"] = cookies_dict.get("session")
 
                         st.success("🎉 Đăng nhập thành công!")
 

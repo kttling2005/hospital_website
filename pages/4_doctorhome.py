@@ -34,7 +34,7 @@ if "cookies" not in st.session_state:
         st.session_state["cookies"] = {"session": st.query_params["session"]}
     else:
         st.session_state["cookies"] = None
-
+#kiem ra login
 if not st.session_state["cookies"]:
     st.warning("⚠️ Bạn cần đăng nhập trước.")
     st.switch_page("pages/1_login.py")

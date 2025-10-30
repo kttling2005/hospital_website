@@ -9,5 +9,4 @@ class Patient(db.Model):
     phone = db.Column(db.String(15))
     email = db.Column(db.String(100), unique=True)
     appointments = db.relationship('Appointment', backref='patient', lazy=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True)
-    user = db.relationship('User', backref=db.backref('patient', uselist=False))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False,unique=True)

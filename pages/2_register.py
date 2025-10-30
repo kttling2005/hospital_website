@@ -132,9 +132,17 @@ elif page =="register":
         unsafe_allow_html=True
     )
 
-    st.title("Đăng ký tài khoản")
+    st.title("Đăng ký tài khoản bệnh nhân")
 
-    fullname = st.text_input("Họ và tên")  # chỉ hiển thị cho người dùng, không gửi lên server
+    fullname = st.text_input("Họ và tên")
+    gender = st.selectbox("Giới tính", ["Nam", "Nữ", "Khác"])
+    date_of_birth = st.date_input("Ngày sinh")
+    phone = st.text_input("Số điện thoại")
+    email = st.text_input("Email")
+
+    st.markdown("---")
+
+    #Thông tin tài khoản
     username = st.text_input("Tên đăng nhập")
     password = st.text_input("Mật khẩu", type="password")
     confirm = st.text_input("Nhập lại mật khẩu", type="password")
@@ -149,13 +157,18 @@ elif page =="register":
             st.warning("⚠️ Vui lòng đồng ý với điều khoản trước khi đăng ký.")
         elif password != confirm:
             st.error("Mật khẩu nhập lại không khớp.")
-        elif not (fullname and username and password):
+        elif not (fullname and username and password and email):
             st.error("Vui lòng nhập đầy đủ thông tin.")
         else:
             # ⚠️ Backend chỉ nhận username + password nên chỉ gửi 2 trường này
             payload = {
                 "username": username,
-                "password": password
+                "password": password,
+                "full_name": fullname,
+                "gender": gender,
+                "date_of_birth": str(date_of_birth),
+                "phone": phone,
+                "email": email
             }
 
             try:

@@ -1,7 +1,5 @@
 from flask import Blueprint, jsonify
 from ..models.doctor_model import Doctor
-from ..models import db
-from sqlalchemy.exc import IntegrityError
 
 doctor_bp = Blueprint('doctor_bp', __name__, url_prefix='/api/doctors')
 
@@ -27,7 +25,7 @@ def get_all_doctors():
             }
             for doc in doctors
         ]
-
+        
         return jsonify(doctors_list), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -51,23 +49,6 @@ def get_doctor_by_id(doctor_id):
         }
 
         return jsonify(doctor_details), 200
-    except Exception as e:
-        if "404 Not Found" in str(e):
-            return jsonify({'message': 'Không tìm thấy bác sĩ với ID này'}), 404
-        return jsonify({'error': str(e)}), 500
-
-# delete bác sĩ
-@doctor_bp.route('/<int:doctor_id>', methods=['DELETE'])
-def delete_doctor(doctor_id):
-    try:
-        doctor = Doctor.query.get_or_404(doctor_id)
-        db.session.delete(doctor)
-        db.session.commit()
-        return jsonify({'message': f'Xoá bác sĩ {doctor.full_name} thành công'}), 200
-    except IntegrityError:
-        # rollback để tránh DB bị treo
-        db.session.rollback()
-        return jsonify({'message': 'Bác sĩ còn ca trực, chưa thể xóa'}), 400
     except Exception as e:
         if "404 Not Found" in str(e):
             return jsonify({'message': 'Không tìm thấy bác sĩ với ID này'}), 404

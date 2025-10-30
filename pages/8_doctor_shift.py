@@ -36,6 +36,11 @@ except Exception as e:
     user_info = None
     st.error(f"Không kết nối được API người dùng: {e}")
 
+# if user_info:
+#     st.subheader("Thông tin người dùng hiện tại")
+#     st.json(user_info)  # In ra dữ liệu người dùng dạng JSON
+# else:
+#     st.warning("Không có thông tin người dùng để hiển thị")
 # --------------------------
 # 2 Lấy danh sách ca trực
 # --------------------------

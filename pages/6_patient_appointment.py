@@ -33,12 +33,12 @@ response = requests.get(API_DOCTOR_URL, cookies=cookies)
 
 if response.status_code == 200:
     doctors_list = response.json()
+    # Tạo mapping: doctor_id → full_name
+    doctor_dict = {d["doctor_id"]: d["full_name"] for d in doctors_list}
 else:
     st.error(f"Lỗi tải danh sách bác sĩ: {response.status_code}")
     doctor_dict = {}
 
-# Tạo mapping: doctor_id → full_name
-doctor_dict = {d["doctor_id"]: d["full_name"] for d in doctors_list}
 # --------------------------
 # PARSE NGÀY GIỜ
 # --------------------------
@@ -52,7 +52,7 @@ for a in appointments:
 # CẤU HÌNH GIAO DIỆN CƠ BẢN
 # --------------------------
 st.set_page_config(
-    page_title="Patient-Home",
+    page_title="Lịch khám bệnh",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -133,7 +133,11 @@ elif page == "patient_appointment":
                     if day_appointments:
                         html += f'<td class="has-appointment">{day}<br>'
                         for a in day_appointments:
-                            html += f'{a["time"]} {a["doctor"]}<br>'
+                            status = a.get("status", "Đã đặt")
+                            if status == "Hủy":
+                                html += f'<span style="color:gray;">{a["time"]} {a["doctor"]} (Hủy)</span><br>'
+                            else:
+                                html += f'{a["time"]} {a["doctor"]}<br>'
                         html += '</td>'
                     else:
                         html += f'<td>{day}</td>'
@@ -248,24 +252,99 @@ elif page == "patient_appointment":
         selected_year = st.selectbox("Chọn năm", years, index=years.index(current_year))
 
     # --------------------------
-    # HIỂN THỊ LỊCH
+    # HIỂN THỊ LỊCH THÁNG
     # --------------------------
     html_calendar = generate_calendar_html(selected_year, selected_month, appointments)
     st.markdown(html_calendar, unsafe_allow_html=True)
 
     # --------------------------
-    # HIỂN THỊ CHI TIẾT LỊCH
+    # HIỂN THỊ CHI TIẾT LỊCH & XOÁ LỊCH
     # --------------------------
     st.subheader("Chi tiết các lịch khám")
     appointments_by_day = {}
     for a in appointments:
         if a["date"].month == selected_month and a["date"].year == selected_year:
-            appointments_by_day.setdefault(a["date"], []).append(f"{a['time']} {a['doctor']}")
+            appointments_by_day.setdefault(a["date"], []).append(a)
 
     if appointments_by_day:
         for d in sorted(appointments_by_day):
             st.markdown(f"**{d.strftime('%d/%m/%Y')}**")
-            for item in appointments_by_day[d]:
-                st.markdown(f"- {item}")
+            for a in appointments_by_day.get(d, []):  # 👈 tránh lỗi None
+                cols = st.columns([3, 1])
+                status = a.get("status", "Đã đặt")
+
+                # 🎨 Chọn màu theo trạng thái
+                color = (
+                    "gray" if status == "Hủy" else
+                    "green" if status == "Đã khám" else
+                    "blue"
+                )
+
+                with cols[0]:
+                    st.markdown(
+                        f"""
+                        <div style="padding:6px 8px; border-radius:8px; background-color:#f9f9f9;">
+                            <b>{a['time']}</b> | <b>{a['doctor']}</b> |
+                            <i>{a['reason'] or 'Không có ghi chú'}</i>
+                            <span style="color:{color}; font-weight:bold; float:right;">{status}</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    if status == "Đã khám":
+                        if st.button("Xem đơn khám", key=f"rec_{a['appointment_id']}"):
+                            try:
+                                with st.spinner("Đang tải kết quả khám..."):
+                                    # Gọi API record theo appointment_id
+                                    url = f"http://127.0.0.1:5000/api/records"
+                                    resp = requests.get(url, cookies=cookies, timeout=8)
+                                    if resp.status_code == 200:
+                                        all_records = resp.json()
+                                        # Tìm bản ghi có appointment_id tương ứng
+                                        record = next(
+                                            (r for r in all_records if r["appointment_id"] == a["appointment_id"]),
+                                            None)
+                                        if record:
+                                            # Gọi chi tiết record
+                                            detail_url = f"http://127.0.0.1:5000/api/records/{record['record_id']}"
+                                            detail_resp = requests.get(detail_url, cookies=cookies, timeout=8)
+                                            if detail_resp.status_code == 200:
+                                                rec = detail_resp.json()
+                                                st.markdown("### Kết quả khám")
+                                                st.write(f"**Chẩn đoán:** {rec.get('diagnosis', '-')}")
+                                                st.write(f"**Đơn thuốc:** {rec.get('prescription', '-')}")
+                                                st.write(f"**Ghi chú:** {rec.get('notes', '-')}")
+                                            else:
+                                                st.warning("Không thể tải chi tiết đơn khám.")
+                                        else:
+                                            st.info("Chưa có kết quả khám được lưu cho lịch này.")
+                                    else:
+                                        st.error("Không thể tải danh sách đơn khám.")
+                            except requests.exceptions.RequestException as e:
+                                st.error(f"Lỗi khi kết nối server: {e}")
+
+                with cols[1]:
+                    # ❌ Ẩn nút "Hủy" nếu lịch đã hủy hoặc đã khám
+                    if status not in ("Hủy", "Đã khám"):
+                        if st.button("Hủy", key=f"del_{a['appointment_id']}"):
+                            cancel_url = f"{API_URL}{a['appointment_id']}/cancel"
+                            try:
+                                with st.spinner("Đang hủy lịch hẹn..."):
+                                    resp = requests.put(cancel_url, cookies=cookies, timeout=8)
+
+                                if resp.status_code == 200:
+                                    st.success("✅ Lịch hẹn đã được hủy!")
+                                    # ✅ Cập nhật trạng thái ngay tại chỗ
+                                    a["status"] = "Hủy"
+                                    st.rerun()
+                                else:
+                                    try:
+                                        msg = resp.json().get("message", resp.text)
+                                    except Exception:
+                                        msg = resp.text
+                                    st.error(f"Lỗi khi hủy: {msg}")
+                            except requests.exceptions.RequestException as e:
+                                st.error(f"Không thể kết nối tới server: {e}")
     else:
         st.info("Không có lịch khám trong tháng này.")
+

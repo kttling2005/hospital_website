@@ -74,7 +74,7 @@ elif page=="appointment_register":
                     <span class="material-icons chevron">expand_more</span>
                     <span style="font-size:18px;">{username}</span>
                 </div>
-                <a href="?logout=1" class="navbar-logout" target="_self">Đăng xuất</a>  
+                <a href="?logout=1" target="_self" style="font-size">Đăng xuất</a>  
             </div>
         </div>
         </body>

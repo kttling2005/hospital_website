@@ -2,7 +2,7 @@ from . import db
 from werkzeug.security import generate_password_hash, check_password_hash
 import enum
 
-class UserRole(enum.Enum):
+class UserRole(str,enum.Enum):
     ADMIN = 'admin'
     DOCTOR = 'doctor'
     PATIENT = 'patient'
@@ -13,9 +13,8 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.Enum(UserRole), nullable=False, default=UserRole.PATIENT)
-    doctor_profile = db.relationship('Doctor', back_populates='user', uselist=False)
-    patient_profile = db.relationship('Patient', back_populates='user', uselist=False)
-
+    patient = db.relationship('Patient', backref='user', uselist=False, cascade="all, delete-orphan")
+    doctor = db.relationship('Doctor', backref='user', uselist=False, cascade="all, delete-orphan")
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 

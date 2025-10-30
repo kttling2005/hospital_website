@@ -27,14 +27,26 @@ res_patients = requests.get(API_PATIENT_URL, cookies=cookies)
 patients = res_patients.json() if res_patients.status_code == 200 else []
 patient_dict = {p["patient_id"]: p["full_name"] for p in patients}
 
+
 # --------------------------
 # Lấy danh sách lịch hẹn của bác sĩ
 # --------------------------
-try:
-    appointments = requests.get(API_APPOINT_URL, cookies=cookies).json()
-except:
-    appointments = []
-    st.error("Không thể tải lịch hẹn!")
+appointments = []
+if cookies:
+    try:
+        res = requests.get(API_APPOINT_URL, cookies=cookies)
+        if res.status_code == 200:
+            appointments = res.json()
+        elif res.status_code == 401:
+            st.warning("⚠️ Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.")
+            st.switch_page("1_login.py")  # hoặc st.experimental_set_query_params(page="login")
+        else:
+            st.error(f"Lỗi tải lịch hẹn: {res.status_code}")
+    except Exception as e:
+        st.error(f"Không thể kết nối API: {e}")
+else:
+    st.warning("Vui lòng đăng nhập để xem lịch hẹn.")
+    st.switch_page("1_login.py")
 
 # --------------------------
 # CẤU HÌNH GIAO DIỆN CƠ BẢN
@@ -254,6 +266,7 @@ elif page == "Doctor-appointment":
     # --------------------------
     # Hiển thị danh sách lịch khám
     # --------------------------
+    API_RECORD_URL = "http://127.0.0.1:5000/api/records/"
     st.title("Danh sách lịch khám tháng")
 
     if not appointments:
@@ -268,4 +281,40 @@ elif page == "Doctor-appointment":
             time_str = app_dt.strftime("%H:%M")
             patient_name = patient_dict.get(a["patient_id"], f"Patient {a['patient_id']}")
             reason = a.get("reason", "-")
-            st.markdown(f"**Ngày {date_str} | {time_str}** — Bệnh nhân: {patient_name} | Lý do: {reason}")
+            status = a.get("status", "")
+
+            # CSS inline để hiện chữ mờ nếu đã hủy
+            if status == "Hủy":
+                st.markdown(
+                    f"<span style='color:grey; text-decoration:line-through;'>**Ngày {date_str} | {time_str}** — Bệnh nhân: {patient_name} | Lý do: {reason} ({status})</span>",
+                    unsafe_allow_html=True
+                )
+            elif status == "Đã đặt":
+                st.markdown(
+                    f"**Ngày {date_str} | {time_str}** — Bệnh nhân: {patient_name} | Lý do: {reason} ({status})",
+                    unsafe_allow_html=True
+                )
+                with st.expander(f"Nhập kết quả khám cho {patient_name}"):
+                    diagnosis = st.text_area(f"Chẩn đoán cho {patient_name}")
+                    prescription = st.text_area("Đơn thuốc (nếu có)")
+                    notes = st.text_area("Ghi chú thêm (nếu có)")
+
+                    if st.button(f"Hoàn tất khám ({patient_name})", key=a["appointment_id"]):
+                        payload = {
+                            "appointment_id": a["appointment_id"],
+                            "diagnosis": diagnosis,
+                            "prescription": prescription,
+                            "notes": notes
+                        }
+                        res = requests.post(API_RECORD_URL, json=payload, cookies=cookies)
+                        if res.status_code == 201:
+                            st.success("Tạo kết quả khám thành công!")
+                            st.rerun()  # reload để cập nhật status "Đã khám"
+                        else:
+                            st.error(f"Lỗi: {res.json().get('message') or res.text}")
+
+            else:
+                st.markdown(
+                    f"**Ngày {date_str} | {time_str}** — Bệnh nhân: {patient_name} | Lý do: {reason} ({status})",
+                    unsafe_allow_html=True
+                )

@@ -1,6 +1,6 @@
-from .app import create_app, db
-from .models.user_model import User, UserRole
-from getpass import getpass
+from ..app import create_app, db
+from ..models.user_model import User, UserRole
+from getpass import getpass  
 
 app = create_app()
 

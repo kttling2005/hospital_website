@@ -11,4 +11,3 @@ class Doctor(db.Model):
     appointments = db.relationship('Appointment', backref='doctor', lazy=True)
     shifts = db.relationship('Shift', backref='doctor', lazy=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=True)
-    user = db.relationship('User', back_populates='doctor_profile', uselist=False)

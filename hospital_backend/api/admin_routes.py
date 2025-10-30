@@ -6,7 +6,6 @@ from ..models import db
 
 admin_bp = Blueprint('admin_bp', __name__, url_prefix='/api/admin')
 
-
 @admin_bp.route('/create_doctor_account', methods=['POST'])
 @role_required('admin')
 def create_doctor_account():
@@ -28,14 +27,13 @@ def create_doctor_account():
 
     new_doctor_user = User(username=data['username'], role=UserRole.DOCTOR)
     new_doctor_user.set_password(data['password'])
-
+    
     doctor_profile.user = new_doctor_user
-
+    
     db.session.add(new_doctor_user)
     db.session.commit()
-
+    
     return jsonify({'message': f"Đã tạo tài khoản cho bác sĩ '{doctor_profile.full_name}' thành công!"}), 201
-
 
 @admin_bp.route('/create_doctor', methods=['POST'])
 @role_required('admin')
@@ -45,32 +43,28 @@ def create_doctor():
     cùng một lúc.
     """
     data = request.get_json()
-
-    # 1. Kiểm tra thông tin đầu vào
+    
     required_fields = ['username', 'password', 'full_name', 'gender', 'specialization']
     if not all(field in data for field in required_fields):
         return jsonify({'message': 'Thiếu thông tin: username, password, full_name, gender, hoặc specialization'}), 400
 
-    # 2. Kiểm tra tài khoản đã tồn tại chưa
     if User.query.filter_by(username=data['username']).first():
         return jsonify({'message': 'Tên tài khoản đã tồn tại'}), 409
 
     try:
-        # 3. Tạo tài khoản User mới
         new_user = User(
-            username=data['username'],
-            role=UserRole.DOCTOR
+            username=data['username'], 
+            role=UserRole.DOCTOR 
         )
         new_user.set_password(data['password'])
 
-        # 4. Tạo hồ sơ Doctor mới và liên kết trực tiếp với User
         new_doctor_profile = Doctor(
             full_name=data['full_name'],
             gender=data['gender'],
             specialization=data.get('specialization'),
             email=data.get('email'),
             phone=data.get('phone'),
-            user=new_user
+            user=new_user 
         )
 
         db.session.add(new_user)
@@ -82,7 +76,7 @@ def create_doctor():
             'doctor_id': new_doctor_profile.doctor_id,
             'user_id': new_user.id
         }), 201
-
+        
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500

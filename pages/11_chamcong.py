@@ -184,17 +184,22 @@ elif page == "chamcong":
     except Exception as e:
         user_info = None
         st.error(f"Không kết nối được API người dùng: {e}")
+
+    # if user_info:
+    #     st.subheader("Thông tin người dùng hiện tại")
+    #     st.json(user_info)  # In ra dữ liệu người dùng dạng JSON
+    # else:
+    #     st.warning("Không có thông tin người dùng để hiển thị")
     ########
 
-    # Giả định thông tin bác sĩ đăng nhập
-    DOCTOR_NAME = user_info.get("username", "PGS. TS. Nguyễn Văn A")
+
+    DOCTOR_NAME = user_info.get("full_name", " ")
     DOCTOR_ID = user_info.get("doctor_id", 1)  # cần có doctor_id để gọi API
 
-    # -----------------------------
+    # --------------------------
     # Tiêu đề & chọn ngày
-    # -----------------------------
+    # --------------------------
     st.title("Chấm công & Lịch làm việc")
-
     col1, col2 = st.columns([2, 1])
     with col1:
         st.markdown(f"### Bác sĩ: **{DOCTOR_NAME}**")
@@ -203,12 +208,12 @@ elif page == "chamcong":
 
     st.markdown("---")
 
-    # -----------------------------
-    # Lấy dữ liệu lịch trực từ API Flask
-    # -----------------------------
-    API_URL = "http://127.0.0.1:5000/api/shifts"
+    # --------------------------
+    # Lấy lịch trực từ API
+    # --------------------------
+    API_SHIFT_URL = "http://127.0.0.1:5000/api/shifts/"
     try:
-        resp = requests.get(API_URL, params={"doctor_id": DOCTOR_ID})
+        resp = requests.get(API_SHIFT_URL, params={"doctor_id": DOCTOR_ID})
         if resp.status_code == 200:
             shifts = resp.json()
             df_schedule = pd.DataFrame(shifts)
@@ -226,9 +231,7 @@ elif page == "chamcong":
         st.error(f"Lỗi kết nối API: {e}")
         filtered_df = pd.DataFrame()
 
-    # -----------------------------
     # Hiển thị lịch
-    # -----------------------------
     st.subheader("Lịch làm việc trong ngày")
     if filtered_df.empty:
         st.info("Hôm nay bạn không có lịch làm việc.")
@@ -240,30 +243,69 @@ elif page == "chamcong":
         )
 
     st.markdown("---")
-
-    # -----------------------------
+    API_BASE = "http://127.0.0.1:5000/api/attendance"
+    # --------------------------
     # Form chấm công
-    # -----------------------------
-    today = date.today()
-    st.subheader(f"Chấm công - {today.strftime('%d/%m/%Y')}")
+    # --------------------------
+    # Khởi tạo session_state để lưu thời gian chấm công
+    if "checkin_time" not in st.session_state:
+        st.session_state.checkin_time = None
+    if "checkout_time" not in st.session_state:
+        st.session_state.checkout_time = None
 
+    # Kiểm tra xem đã check-in/checkout từ backend chưa
+    if st.session_state.checkin_time is None:
+        res = requests.get(f"{API_BASE}/today_status", cookies=cookies)  # tạo route API để lấy status hôm nay
+        if res.status_code == 200:
+            data = res.json()
+            st.session_state.checkin_time = data.get("check_in_time")
+            st.session_state.checkout_time = data.get("check_out_time")
+
+    # Xác định trạng thái nút
+    button_disabled = st.session_state.checkout_time is not None
+
+    #form chấm công
     with st.form("attendance_form"):
-        shift = st.selectbox("Ca làm việc", ["Sáng", "Chiều", "Tối"])
-        check_in = st.time_input("Giờ vào làm", datetime.now().time())
-        check_out = st.time_input("Giờ ra về", (datetime.now() + timedelta(hours=4)).time())
-        notes = st.text_area("Ghi chú (nếu có)")
-        submit = st.form_submit_button("Xác nhận chấm công", use_container_width=True)
+        st.write("Nhấn nút để chấm công:")
 
-        if submit:
-            st.success(
-                f"Đã ghi nhận chấm công cho **{DOCTOR_NAME}** — Ca {shift} ({check_in.strftime('%H:%M')} - {check_out.strftime('%H:%M')})"
-            )
+        # Disable nút dựa trên trạng thái
+        button_disabled = st.session_state.checkout_time is not None
+
+        submit_btn = st.form_submit_button("Chấm công", disabled=button_disabled)
+
+        if submit_btn:
+            if st.session_state.checkin_time is None:
+                # Gọi API check-in
+                res = requests.post(f"{API_BASE}/checkin", cookies=cookies)
+                if res.status_code == 201:
+                    st.session_state.checkin_time = res.json()["check_in_time"]
+                    st.success(f"Check-in thành công lúc {st.session_state.checkin_time}")
+                else:
+                    st.error(res.json().get("message", "Check-in lỗi"))
+            elif st.session_state.checkout_time is None:
+                # Gọi API check-out
+                res = requests.put(f"{API_BASE}/checkout", cookies=cookies)
+                if res.status_code == 200:
+                    st.session_state.checkout_time = res.json()["check_out_time"]
+                    st.success(f"Check-out thành công lúc {st.session_state.checkout_time}")
+                else:
+                    st.error(res.json().get("message", "Check-out lỗi"))
+            else:
+                st.info("Bạn đã hoàn tất chấm công hôm nay.")
+
+    # --------------------------
+    # Hiển thị giờ chấm công hiện tại
+    # --------------------------
+    if st.session_state.checkin_time:
+        st.write("Check-in:", st.session_state.checkin_time)
+    if st.session_state.checkout_time:
+        st.write("Check-out:", st.session_state.checkout_time)
 
     st.markdown("---")
 
-    # -----------------------------
+    # --------------------------
     # Thống kê nhanh
-    # -----------------------------
+    # --------------------------
     with st.expander("📊 Thống kê nhanh"):
         total_shifts = len(df_schedule) if not df_schedule.empty else 0
         upcoming = len(df_schedule[df_schedule["shift_date"] >= date.today()]) if not df_schedule.empty else 0
